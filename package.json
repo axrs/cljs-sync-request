@@ -1,0 +1,28 @@
+{
+  "name": "cljs-sync-request",
+  "version": "0.0.1-SNAPSHOT",
+  "description": "A ClojureScript wrapper around sync-request (Make synchronous web requests with cross-platform support)",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "source-map-support": "^0.5.12",
+    "sync-request": "^6.1.0",
+    "ws": "^7.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axrs/cljs-sync-request.git"
+  },
+  "author": "Alexander Scott (AXRS)",
+  "license": "EPL-1.0",
+  "bugs": {
+    "url": "https://github.com/axrs/cljs-sync-request/issues"
+  },
+  "homepage": "https://github.com/axrs/cljs-sync-request#readme"
+}

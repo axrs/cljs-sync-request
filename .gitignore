@@ -6,6 +6,5 @@
 .shadow-cljs/
 node_modules/
 project.sh
-package.json
 pom.xml
 target/

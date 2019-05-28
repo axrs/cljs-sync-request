@@ -1,0 +1,5 @@
+{:builds {:test {:ns-regexp "-test$"
+                 :output-to "target/test/test.js"
+                 :target    :node-test}}
+ :lein   true
+ :nrepl   {:port 7002}}
