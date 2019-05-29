@@ -33,27 +33,32 @@
     (catch :default _)))
 
 (defn request
-  "Performs a `sync-request` with an `encode`d body and `inflate`d context. The `{:keys [status body headers] :as response}`
-  is then returned `deflate`d and with a `decode`d body.
+  "Performs a `sync-request` with an encoded body and inflated context. The returned `{:keys [status body headers] :as response}`
+  is deflated and with a decoded body.
 
   Refer to [sync-request options](https://github.com/ForbesLindesay/sync-request/) for all available features of the
   context map including `:timeout`, `:retry`, `:maxRetries`, `:qs`, and more.
 
   opts map
-  * `:encode` - A function that takes the body from the context and transforms it before performing the request. Defaults to `clj->json` for JSON requests
-  * `:decode` - A function that takes the body of the response and decodes it before returning a result. Defaults to `json->clj` for JSON requests
-  * `:inflate` - A function that takes the full context and transforms it before performing the request.
-  * `:deflate` - A function that takes the full response and transforms it before returning a result.
 
-  ```clojure
-  (request
-    POST
-    {:body {:id \"123\"} :headers {\"Accept\" \"application/json\"}}
-    {:encode (fn [request-body] (assoc request-body :token \"456\"))
-     :decode (fn [response-body] (-> response-body json->clj (assoc :response-time (js/Date.))))
-     :inflate (fn [request] (assoc-in request [:headers \"Authorization\"] (str \"Bearer 890\")))
-     :deflate (fn [response] (dissoc response :headers))})
-  ```
+  `:encode` - A function that takes the body from the context and transforms it before performing the request. Defaults to `clj->json` for JSON requests
+
+  `:decode` - A function that takes the body of the response and decodes it before returning a result. Defaults to `json->clj` for JSON requests
+
+  `:inflate` - A function that takes the full context and transforms it before performing the request.
+
+  `:deflate` - A function that takes the full response and transforms it before returning a result.
+
+
+    ```clojure
+    (request
+      POST
+      {:body {:id \"123\"} :headers {\"Accept\" \"application/json\"}}
+      {:encode (fn [request-body] (assoc request-body :token \"456\"))
+       :decode (fn [response-body] (-> response-body json->clj (assoc :response-time (js/Date.))))
+       :inflate (fn [request] (assoc-in request [:headers \"Authorization\"] (str \"Bearer 890\")))
+       :deflate (fn [response] (dissoc response :headers))})
+    ```
     "
   [method url {:keys [body] :as context} {:keys [encode decode inflate deflate]
                                           :or   {encode  identity
