@@ -1,0 +1,36 @@
+version: 2
+aliases:
+  cache:
+    lein_cache: &LEIN_CACHE
+      key: lein-{{ .Environment.CACHE_VERSION }}-{{ checksum "project.clj" }}
+      paths:
+        - ~/.lein
+        - ~/.m2
+    node_cache: &NODE_CACHE
+      key: node-{{ .Environment.CACHE_VERSION }}
+      paths:
+        - node_modules
+jobs:
+  test:
+    docker:
+      - image: thheller/cljs-dev:latest
+        environment:
+          LEIN_ROOT: "true"
+          JVM_OPTS: -Xmx3200m
+          DEBUG: 1
+    steps:
+      - checkout
+      - restore_cache:
+          <<: *LEIN_CACHE
+      - restore_cache:
+          <<: *NODE_CACHE
+      - run: './cljs-sync-request.sh test'
+      - save_cache:
+          <<: *LEIN_CACHE
+      - save_cache:
+          <<: *NODE_CACHE
+workflows:
+  version: 2
+  build:
+    jobs:
+      - test
