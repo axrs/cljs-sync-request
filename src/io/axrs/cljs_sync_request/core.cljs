@@ -3,7 +3,7 @@
 (def ^:dynamic *sync-request*
   "Dynamic reference to the underlying Javascript [`sync-request`](https://github.com/ForbesLindesay/sync-request) module.
 
-  Note: `sync-request` is not bundled with `cljs-sync-request`. Refer [[compojure.core/set-sync-request!]]"
+  Note: `sync-request` is not bundled with `cljs-sync-request`. Refer [[io.axrs.cljs-sync-request.core/set-sync-request!]]"
   nil)
 
 (defn set-sync-request!
