@@ -8,6 +8,7 @@ A ClojureScript wrapper around the NPM [sync-request](https://github.com/ForbesL
 
 [![Clojars Project](https://img.shields.io/clojars/v/io.axrs/cljs-sync-request.svg)](https://clojars.org/io.axrs/cljs-sync-request)
 [![cljdoc badge](https://cljdoc.org/badge/io.axrs/cljs-sync-request)](https://cljdoc.org/d/io.axrs/cljs-sync-request/CURRENT)
+[![CircleCI](https://circleci.com/gh/axrs/cljs-sync-request.svg?style=svg)](https://circleci.com/gh/axrs/cljs-sync-request)
 
 ## Why?
 
