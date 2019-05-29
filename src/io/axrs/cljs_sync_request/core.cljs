@@ -3,7 +3,7 @@
 (def ^:dynamic *sync-request*
   "Dynamic reference to the underlying Javascript [`sync-request`](https://github.com/ForbesLindesay/sync-request) module.
 
-  Note: `sync-request` is not bundled with `cljs-sync-request`. See `set-sync-request!`"
+  Note: `sync-request` is not bundled with `cljs-sync-request`. Refer [[compojure.core/set-sync-request!]]"
   nil)
 
 (defn set-sync-request!
@@ -34,15 +34,18 @@
 
 (defn request
   "Performs a `sync-request` with an `encode`d body and `inflate`d context. The `{:keys [status body headers] :as response}`
-  is then returned `deflate`d and with a `decode`d body. Refer to `sync-request#Options` for all available features of
-  the context map including :timeout, :retry, :maxRetries, :qs, and more.
+  is then returned `deflate`d and with a `decode`d body.
+
+  Refer to [sync-request options](https://github.com/ForbesLindesay/sync-request/) for all available features of the
+  context map including `:timeout`, `:retry`, `:maxRetries`, `:qs`, and more.
 
   opts map
-    :encode - A function that takes the body from the context and transforms it before performing the request. Defaults to `clj->json` for JSON requests
-    :decode - A function that takes the body of the response and decodes it before returning a result. Defaults to `json->clj` for JSON requests
-    :inflate - A function that takes the full context and transforms it before performing the request.
-    :deflate - A function that takes the full response and transforms it before returning a result.
+  * `:encode` - A function that takes the body from the context and transforms it before performing the request. Defaults to `clj->json` for JSON requests
+  * `:decode` - A function that takes the body of the response and decodes it before returning a result. Defaults to `json->clj` for JSON requests
+  * `:inflate` - A function that takes the full context and transforms it before performing the request.
+  * `:deflate` - A function that takes the full response and transforms it before returning a result.
 
+  ```clojure
   (request
     POST
     {:body {:id \"123\"} :headers {\"Accept\" \"application/json\"}}
@@ -50,6 +53,7 @@
      :decode (fn [response-body] (-> response-body json->clj (assoc :response-time (js/Date.))))
      :inflate (fn [request] (assoc-in request [:headers \"Authorization\"] (str \"Bearer 890\")))
      :deflate (fn [response] (dissoc response :headers))})
+  ```
     "
   [method url {:keys [body] :as context} {:keys [encode decode inflate deflate]
                                           :or   {encode  identity
