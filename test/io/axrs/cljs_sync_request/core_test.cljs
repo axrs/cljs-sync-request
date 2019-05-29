@@ -2,57 +2,156 @@
   (:require
     [clojure.test :refer [deftest testing is]]
     [clojure.walk :as walk]
-    [io.axrs.cljs-sync-request.core :as request]))
+    [io.axrs.cljs-sync-request.core :as core]))
 
-(def ^:private url "https://httpdump.io/q4awo")
-
-(defn- rand-str [len]
-  (apply str (take len (repeatedly #(char (+ (rand 26) 65))))))
+(defn- rand-str
+  ([] (rand-str 24))
+  ([len]
+   (apply str (take len (repeatedly #(char (+ (rand 26) 65)))))))
 
 (defn- stringify-keys [m]
   (let [f (fn [[k v]] (if (keyword? k) [(name k) v] [(str k) v]))]
     (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) m)))
 
-(deftest json-post-test
+(def random-uuid-str (comp str random-uuid))
 
-  (testing "Posts data and returns a response"
-    (let [data {:someValues           (rand-str 20)
-                "should-be-converted" 2
-                :other-values         (rand-str 20)
-                2                     {3 [4 5 6]}}
-          {:keys [status body headers] :as actual} (request/json-post url data)]
-      (is (map? actual))
-      (is (= 200 status))
+(defn- mock-response [status headers body]
+  #js {:statusCode status
+       :headers    headers
+       :getBody    (constantly body)})
 
-      (testing "posted value was a json string"
-        (let [raw-body (get body "raw_post")]
-          (is (= (stringify-keys data)
-                 (request/json->clj raw-body)))))
+(deftest inflate-test
 
-      (testing "request and response body can be passed through encoding functions"
-        (let [{:keys [status body headers] :as actual} (request/json-post url data {:encode (fn [body]
-                                                                                              (-> body
-                                                                                                  (assoc :encoded true)
-                                                                                                  request/clj->json))
-                                                                                    :decode (fn [body]
-                                                                                              (js->clj
-                                                                                                (js/JSON.parse body)
-                                                                                                :keywordize-keys true))})]
-          (is (map? actual))
+  (testing "Provides an opportunity to extend or transform the context before making the request"
+    (let [authorization (str "Bearer " (random-uuid-str))
+          url "https://axrs.dev/inflate/test"
+          path [:headers "Authorization"]
+          inflate (fn [context] (assoc-in context path authorization))
+          response-id (random-uuid-str)]
+      (binding [core/sync-request (fn [method actual-url js-request]
+                                    (is (= core/POST method))
+                                    (is (= url actual-url))
+                                    (is (object? js-request))
+                                    (is (= authorization (.. js-request -headers -Authorization)))
+                                    (mock-response 200 #js {} (core/clj->json {:id response-id})))]
+        (let [{:keys [status headers body] :as response} (core/request core/POST url {:headers core/json-headers} {:inflate inflate})]
+          (is (map? response))
           (is (= 200 status))
+          (is (= {} (js->clj headers)))
+          (is (= {"id" response-id} (core/json->clj body))))))))
 
-          (testing "posted value was a json string"
-            (let [raw-body (:raw_post body)]
-              (is (= (stringify-keys (assoc data :encoded true))
-                     (request/json->clj raw-body))))))))))
+(deftest deflate-test
 
-(deftest json-get-test
-  (cljs.pprint/pprint (request/json-get url)))
+  (testing "Provides an opportunity to extend or transform the response"
+    (let [url "https://axrs.dev/deflate/test"
+          deflate (fn [response] (assoc response :deflated? true))
+          response-id (random-uuid-str)]
+      (binding [core/sync-request (fn [method actual-url _]
+                                    (is (= core/PUT method))
+                                    (is (= url actual-url))
+                                    (mock-response 301 #js {} (core/clj->json {:id response-id})))]
+        (let [{:keys [status headers body deflated?] :as response} (core/request core/PUT url {} {:deflate deflate})]
+          (is (map? response))
+          (is (= 301 status))
+          (is (= {} (js->clj headers)))
+          (is deflated?)
+          (is (= {"id" response-id} (core/json->clj body))))))))
 
-(deftest json-put-test)
+(deftest encode-test
 
-(deftest json-delete-test)
+  (testing "A function used to encode the request :body if present"
+    (let [url "https://axrs.dev/encode/test"
+          encode (fn [body] (-> body (assoc :encoded? true) core/clj->json))
+          response-id (random-uuid-str)]
+      (binding [core/sync-request (fn [method actual-url js-request]
+                                    (is (= core/POST method))
+                                    (is (= url actual-url))
+                                    (mock-response 201 #js {} (.. js-request -body)))]
+        (let [{:keys [status body]} (core/request core/POST url {:body {:id response-id}} {:encode encode})]
+          (is (= 201 status))
+          (is (= {"id"       response-id
+                  "encoded?" true}
+                 (core/json->clj body))))))))
 
-(deftest json-head-test)
+(deftest decode-test
 
-(clojure.test/run-tests 'io.axrs.cljs-sync-request.core-test)
+  (testing "A function used to decode the result :body if present"
+    (let [url "https://axrs.dev/encode/test"
+          decode (fn [body]
+                   (-> body core/json->clj walk/keywordize-keys))
+          response-id (random-uuid-str)]
+      (binding [core/sync-request (fn [method actual-url _]
+                                    (is (= core/POST method))
+                                    (is (= url actual-url))
+                                    (mock-response 202 #js {} (core/clj->json {:id response-id})))]
+        (let [{:keys [status body]} (core/request core/POST url {} {:decode decode})]
+          (is (= 202 status))
+          (is (= {:id response-id} body)))))))
+
+(defn assert-basic-json-request [expected-method expected-url & [body]]
+  (fn [actual-method actual-url actual-context actual-opts]
+    (is (= expected-method actual-method))
+    (is (= expected-url actual-url))
+    (is (= core/json-headers (:headers actual-context)))
+    (is (= body (:body actual-context)))
+    (is (= core/js-opts actual-opts))))
+
+(deftest json-head
+
+  (testing "performs a JSON head request with default json-opts"
+    (let [url "https://axrs.dev/json-head"]
+      (with-redefs [core/request (assert-basic-json-request core/HEAD url)]
+        (core/json-head url)))))
+
+(deftest json-delete
+
+  (testing "performs a JSON delete request with default json-opts"
+    (let [url "https://axrs.dev/json-delete"]
+      (with-redefs [core/request (assert-basic-json-request core/DELETE url)]
+        (core/json-delete url)))))
+
+(deftest json-get
+
+  (testing "performs a JSON get request with default json-opts"
+    (let [url "https://axrs.dev/json-get"]
+      (with-redefs [core/request (assert-basic-json-request core/GET url)]
+        (core/json-get url)))))
+
+(deftest json-put
+
+  (testing "performs a JSON put request with default json-opts"
+    (let [url "https://axrs.dev/json-put"
+          body {:id (rand-str)}]
+      (with-redefs [core/request (assert-basic-json-request core/PUT url body)]
+        (core/json-put url body)))))
+
+(deftest json-post
+
+  (testing "performs a JSON post request with default json-opts"
+    (let [url "https://axrs.dev/json-post"
+          body {:id (rand-str)}]
+      (with-redefs [core/request (assert-basic-json-request core/POST url body)]
+        (core/json-post url body)))))
+
+(deftest httpdump-io-test
+  (let [url "https://posthere.io/dbe9-4f42-8f97"
+        expected-body {:id (random-uuid-str)}]
+
+    (testing "deleting to url"
+      (core/json-delete url))
+
+    (testing "posting data"
+      (let [{:keys [status headers]} (core/json-post url expected-body)]
+        (is (= 200 status))
+        (is (map? headers))))
+
+    (testing "getting the data just posted"
+      (let [{:keys [status body headers]} (core/json-get url)]
+        (is (= 200 status))
+        (is (map? headers))
+        (is (vector? body))
+        (is (pos? (count body)))
+        (is (some (fn [posted]
+                    (= (stringify-keys expected-body)
+                       (core/json->clj (get posted "body"))))
+              body))))))
