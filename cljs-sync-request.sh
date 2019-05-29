@@ -12,7 +12,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 shadow-cljs () {
-    lein trampoline run -m shadow.cljs.devtools.cli $@
+	lein trampoline run -m shadow.cljs.devtools.cli $@
 }
 
 ## build:
@@ -45,10 +45,17 @@ repl () {
 	shadow-cljs node-repl
 }
 
+is-ci-platform () {
+	[[ -n "$CIRCLECI" ]]
+}
+
 ## test:
 ## Runs the ClojureScript unit tests
 test () {
 	clean
+	if is-ci-platform;then
+		deps
+	fi
 	echo_message 'Unit Testing'
 	shadow-cljs compile :test --debug --source-maps && \
 	node ./target/test/test.js
