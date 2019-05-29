@@ -1,12 +1,15 @@
-(ns io.axrs.cljs-sync-request.core
-  (:require
-    ["sync-request" :as js-sync-request]))
+(ns io.axrs.cljs-sync-request.core)
 
-(def ^:dynamic sync-request
+(def ^:dynamic *sync-request*
   "Dynamic reference to the underlying Javascript [`sync-request`](https://github.com/ForbesLindesay/sync-request) module.
 
-  Note: `sync-request` is not bundled with `cljs-sync-request`. Tested against version 6.1.0"
-  js-sync-request)
+  Note: `sync-request` is not bundled with `cljs-sync-request`. See `set-sync-request!`"
+  nil)
+
+(defn set-sync-request!
+  "Sets *sync-request* to the Javascript `sync-request` function"
+  [^js sync-request]
+  (set! *sync-request* sync-request))
 
 (def DELETE "`method` used to perform a `DELETE` request" "DELETE")
 (def GET "`method` used to perform a `GET` request" "GET")
@@ -54,13 +57,15 @@
                                                  inflate identity
                                                  deflate identity}
                                           :as   opts}]
-  (let [context (if body (update context :body encode) context)
-        context (-> context inflate clj->js)
-        response (sync-request method (str url) context)]
-    (deflate
-      {:status  (.-statusCode response)
-       :body    (decode-body decode response)
-       :headers (js->clj (.-headers response))})))
+  (if-not *sync-request*
+    (throw (ex-info "*sync-request* is unbound" {}))
+    (let [context (if body (update context :body encode) context)
+          context (-> context inflate clj->js)
+          response (*sync-request* method (str url) context)]
+      (deflate
+        {:status  (.-statusCode response)
+         :body    (decode-body decode response)
+         :headers (js->clj (.-headers response))}))))
 
 (def ^:private js-opts {:decode json->clj :encode clj->json})
 (def ^:private json-headers {"Content-Type" "application/json"

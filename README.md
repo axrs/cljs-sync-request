@@ -23,7 +23,10 @@ where I don't need to do any asynchronous work and am typically wait for a resul
 ```clojure
 (ns io.axrs.cljs-sync-request.example
   (:require
-    [io.axrs.cljs.sync-request.core :refer [json-post]]))
+    [io.axrs.cljs.sync-request.core :refer [json-post set-sync-request!]]
+    ["sync-request" :as sync-request]])) ; When using shadow-cljs
+
+(set-sync-request! sync-request)
 
 (defn check-status []
   (let [{:keys [status body headers] :as response} (json-post "https://some.url/here" {:id "1234"})]

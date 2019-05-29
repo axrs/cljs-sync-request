@@ -2,7 +2,8 @@
   (:require
     [clojure.test :refer [deftest testing is]]
     [clojure.walk :as walk]
-    [io.axrs.cljs-sync-request.core :as core]))
+    [io.axrs.cljs-sync-request.core :as core]
+    ["sync-request" :as sr]))
 
 (defn- rand-str
   ([] (rand-str 24))
@@ -28,12 +29,12 @@
           path [:headers "Authorization"]
           inflate (fn [context] (assoc-in context path authorization))
           response-id (random-uuid-str)]
-      (binding [core/sync-request (fn [method actual-url js-request]
-                                    (is (= core/POST method))
-                                    (is (= url actual-url))
-                                    (is (object? js-request))
-                                    (is (= authorization (.. js-request -headers -Authorization)))
-                                    (mock-response 200 #js {} (core/clj->json {:id response-id})))]
+      (binding [core/*sync-request* (fn [method actual-url js-request]
+                                      (is (= core/POST method))
+                                      (is (= url actual-url))
+                                      (is (object? js-request))
+                                      (is (= authorization (.. js-request -headers -Authorization)))
+                                      (mock-response 200 #js {} (core/clj->json {:id response-id})))]
         (let [{:keys [status headers body] :as response} (core/request core/POST url {:headers core/json-headers} {:inflate inflate})]
           (is (map? response))
           (is (= 200 status))
@@ -46,10 +47,10 @@
     (let [url "https://axrs.dev/deflate/test"
           deflate (fn [response] (assoc response :deflated? true))
           response-id (random-uuid-str)]
-      (binding [core/sync-request (fn [method actual-url _]
-                                    (is (= core/PUT method))
-                                    (is (= url actual-url))
-                                    (mock-response 301 #js {} (core/clj->json {:id response-id})))]
+      (binding [core/*sync-request* (fn [method actual-url _]
+                                      (is (= core/PUT method))
+                                      (is (= url actual-url))
+                                      (mock-response 301 #js {} (core/clj->json {:id response-id})))]
         (let [{:keys [status headers body deflated?] :as response} (core/request core/PUT url {} {:deflate deflate})]
           (is (map? response))
           (is (= 301 status))
@@ -63,10 +64,10 @@
     (let [url "https://axrs.dev/encode/test"
           encode (fn [body] (-> body (assoc :encoded? true) core/clj->json))
           response-id (random-uuid-str)]
-      (binding [core/sync-request (fn [method actual-url js-request]
-                                    (is (= core/POST method))
-                                    (is (= url actual-url))
-                                    (mock-response 201 #js {} (.. js-request -body)))]
+      (binding [core/*sync-request* (fn [method actual-url js-request]
+                                      (is (= core/POST method))
+                                      (is (= url actual-url))
+                                      (mock-response 201 #js {} (.. js-request -body)))]
         (let [{:keys [status body]} (core/request core/POST url {:body {:id response-id}} {:encode encode})]
           (is (= 201 status))
           (is (= {"id"       response-id
@@ -80,10 +81,10 @@
           decode (fn [body]
                    (-> body core/json->clj walk/keywordize-keys))
           response-id (random-uuid-str)]
-      (binding [core/sync-request (fn [method actual-url _]
-                                    (is (= core/POST method))
-                                    (is (= url actual-url))
-                                    (mock-response 202 #js {} (core/clj->json {:id response-id})))]
+      (binding [core/*sync-request* (fn [method actual-url _]
+                                      (is (= core/POST method))
+                                      (is (= url actual-url))
+                                      (mock-response 202 #js {} (core/clj->json {:id response-id})))]
         (let [{:keys [status body]} (core/request core/POST url {} {:decode decode})]
           (is (= 202 status))
           (is (= {:id response-id} body)))))))
@@ -134,6 +135,8 @@
         (core/json-post url body)))))
 
 (deftest httpdump-io-test
+  (core/set-sync-request! sr)
+
   (let [url "https://posthere.io/dbe9-4f42-8f97"
         expected-body {:id (random-uuid-str)}]
 
