@@ -45,7 +45,10 @@
 
   (testing "Provides an opportunity to extend or transform the response"
     (let [url "https://axrs.dev/deflate/test"
-          deflate (fn [response] (assoc response :deflated? true))
+          deflate (fn [actual-url context response]
+                    (is (= url actual-url))
+                    (is (map? context))
+                    (assoc response :deflated? true))
           response-id (random-uuid-str)]
       (binding [core/*sync-request* (fn [method actual-url _]
                                       (is (= core/PUT method))
