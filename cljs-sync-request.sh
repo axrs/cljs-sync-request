@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -eo pipefail
 cd $(realpath $(dirname $0))
 
 if [[ ! -f ./project.sh ]]; then
