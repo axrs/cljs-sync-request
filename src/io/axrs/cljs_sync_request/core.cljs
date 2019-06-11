@@ -57,7 +57,7 @@
       {:encode (fn [request-body] (assoc request-body :token \"456\"))
        :decode (fn [response-body] (-> response-body json->clj (assoc :response-time (js/Date.))))
        :inflate (fn [request] (assoc-in request [:headers \"Authorization\"] (str \"Bearer 890\")))
-       :deflate (fn [response] (dissoc response :headers))})
+       :deflate (fn [url context response] (dissoc response :headers))})
     ```
     "
   [method url {:keys [body] :as context} {:keys [encode decode inflate deflate]
