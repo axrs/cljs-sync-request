@@ -41,13 +41,13 @@
 
   opts map
 
-  `:encode` - A function that takes the body from the context and transforms it before performing the request. Defaults to `clj->json` for JSON requests
+  `:encode` - A function that takes the body from the `context` and transforms it before performing the request. Defaults to `clj->json` for JSON requests
 
   `:decode` - A function that takes the body of the response and decodes it before returning a result. Defaults to `json->clj` for JSON requests
 
   `:inflate` - A function that takes the full context and transforms it before performing the request.
 
-  `:deflate` - A function that takes the full response and transforms it before returning a result.
+  `:deflate` - A function that takes the `url`, `inflated-context` and `response`. Transforming the `response` before returning it.
 
 
     ```clojure
@@ -64,14 +64,16 @@
                                           :or   {encode  identity
                                                  decode  identity
                                                  inflate identity
-                                                 deflate identity}
+                                                 deflate (fn [url request response] response)}
                                           :as   opts}]
   (if-not *sync-request*
     (throw (ex-info "*sync-request* is unbound" {}))
     (let [context (if body (update context :body encode) context)
-          context (-> context inflate clj->js)
-          response (*sync-request* method (str url) context)]
+          inflated-context (inflate context)
+          response (*sync-request* method (str url) (clj->js inflated-context))]
       (deflate
+        url
+        inflated-context
         {:status  (.-statusCode response)
          :body    (decode-body decode response)
          :headers (js->clj (.-headers response))}))))
