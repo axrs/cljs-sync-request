@@ -23,13 +23,18 @@ where I don't need to do any asynchronous work and am typically wait for a resul
 ```clojure
 (ns io.axrs.cljs-sync-request.example
   (:require
-    [io.axrs.cljs.sync-request.core :refer [json-post set-sync-request!]]
+    [io.axrs.cljs.sync-request.core :refer [wrap-sync-request]]
     ["sync-request" :as sync-request]])) ; When using shadow-cljs
-
-(set-sync-request! sync-request)
+    
+(def transformers {"application/json" {:decode #(js->clj (js/JSON.parse %)) 
+                                       :encode #(js/JSON.stringify (clj->js %))}})
+(def request (wrap-sync-request sync-request transformers))
 
 (defn check-status []
-  (let [{:keys [status body headers] :as response} (json-post "https://some.url/here" {:id "1234"})]
+  (let [{:keys [status body headers] :as response} (request {:body {:id "123"} 
+                                                             :content-type "application/json" 
+                                                             :url "http://localhost"
+                                                             :method "POST"})
     (if (= 200 status)
       (continue-processing body)
       (handle-other-codes response))))

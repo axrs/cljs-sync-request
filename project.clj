@@ -1,4 +1,4 @@
-(defproject io.axrs/cljs-sync-request "0.2.0"
+(defproject io.axrs/cljs-sync-request "1.0.0"
   :description "A ClojureScript wrapper around sync-request. Make synchronous HTTP requests."
   :min-lein-version "2.8.1"
   :dependencies [[thheller/shadow-cljs "2.8.37" :scope "provided"]
