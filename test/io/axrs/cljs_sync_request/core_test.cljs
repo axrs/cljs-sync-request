@@ -16,6 +16,58 @@
 
 (def random-uuid-str (comp str random-uuid))
 
+(deftest wrap-sync-request-test
+
+  (testing "Extracts the url and method to be forwarded to sync-request"
+    (let [response #js {:statusCode 333
+                        :getBody    (fn [])
+                        :headers    {"content-type" core/json}}
+          context {:url    (rand-str)
+                   :method core/DELETE}
+          request (core/wrap-sync-request (fn [actual-method actual-url ^js actual-request]
+                                            (is (= actual-method (:method context)))
+                                            (is (= actual-url (:url context)))
+                                            (is (object? actual-request))
+
+                                            (testing "Actual-request accepts json by default"
+                                              (let [actual-request (js->clj actual-request)]
+                                                (is (= (-> context
+                                                           (assoc-in [:headers "accept"] core/json)
+                                                           clj->js
+                                                           js->clj)
+                                                       actual-request))))
+                                            response))
+
+          actual (request context)]
+      (is (= {:status  333
+              :headers {"content-type" core/json}}
+             actual))))
+
+  (testing "encodes and decodes the request body if present and matches a content-type decoder"
+    (let [id (random-uuid)
+          response #js {:statusCode 404
+                        :getBody    (fn [] (pr-str {:id id}))
+                        :headers    {"content-type" core/edn}}
+          context {:url          (rand-str)
+                   :content-type core/json
+                   :body         {:id id}
+                   :method       core/POST}
+          request (core/wrap-sync-request (fn [actual-method actual-url ^js actual-request]
+                                            (is (= actual-method (:method context)))
+                                            (is (= actual-url (:url context)))
+
+                                            (is (object? actual-request))
+                                            (let [actual-body (.-body actual-request)]
+                                              (is (string? actual-body))
+                                              (is (= (core/clj->json {:id id})
+                                                     actual-body)))
+                                            response))
+          actual (request context)]
+      (is (= {:status  404
+              :headers {"content-type" core/edn}
+              :body    {:id id}}
+             actual)))))
+
 (deftest httpdump-io-test
   (let [request (core/wrap-sync-request sr)
         url "https://posthere.io/dbe9-4f42-8f97"
@@ -52,4 +104,3 @@
                        :headers {"Authorization" "token"
                                  "User-Agent"    "sync-request"}
                        :method  core/GET}))))
-

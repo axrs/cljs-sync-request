@@ -6,6 +6,12 @@
 (def json "JSON MIME Type" "application/json")
 (def edn "EDN MIME Type" "application/edn")
 
+(def DELETE "`method` used to perform a `DELETE` request" "DELETE")
+(def GET "`method` used to perform a `GET` request" "GET")
+(def HEAD "`method` used to perform a `HEAD` request" "HEAD")
+(def POST "`method` used to perform a `POST` request" "POST")
+(def PUT "`method` used to perform a `PUT` request" "PUT")
+
 (defn clj->json
   "A no assumption clj->JSON encoding function used by all `json-*` request methods with a `:body`. Can be replaced by
   specifying `:encode` in the `opts` of any request method."
@@ -16,21 +22,23 @@
   replaced by specifying the `:decode` in the `opts` of any request method."
   [s] (js->clj (js/JSON.parse s)))
 
-(def ^:private mime-transformers
+(def mime-transformers
+  "Default mime-transformers for application/edn and application/json requests"
   {edn  {:encode pr-str
          :decode reader/read-string}
    json {:encode clj->json
          :decode json->clj}})
 
-(def DELETE "`method` used to perform a `DELETE` request" "DELETE")
-(def GET "`method` used to perform a `GET` request" "GET")
-(def HEAD "`method` used to perform a `HEAD` request" "HEAD")
-(def POST "`method` used to perform a `POST` request" "POST")
-(def PUT "`method` used to perform a `PUT` request" "PUT")
+(defn- find-transformer [transformers content-type]
+  (when-not (string/blank? content-type)
+    (let [content-type (string/lower-case content-type)]
+      (first (keep (fn [[t fns]]
+                     (when (string/starts-with? content-type t) fns))
+               transformers)))))
 
 (defn- encode [{:as transformers} {:keys [body content-type] :as request}]
   (if (and body content-type)
-    (if-let [encoder (get-in transformers [content-type :encode])]
+    (if-let [encoder (:encode (find-transformer transformers content-type))]
       (update request :body encoder)
       request)
     request))
@@ -41,16 +49,15 @@
 (defn- decode [{:as transformers} {:keys [method] :as request} ^js response]
   (let [status (.-statusCode response)
         headers (js->clj (.-headers response))
-        content-type (string/lower-case (get headers "content-type" ""))
+        content-type (get headers "content-type")
         result {:status status :headers headers}
-        decoder (first (keep (fn [[t fns]]
-                               (when (string/starts-with? content-type t)
-                                 (:decode fns)))
-                         transformers))
+        decoder (:decode (find-transformer transformers content-type))
         decode (comp (or decoder identity) body)]
     (if (and (not= HEAD method)
              (not= 204 status))
-      (assoc result :body (decode response))
+      (if-let [body (decode response)]
+        (assoc result :body body)
+        result)
       result)))
 
 (defn wrap-sync-request
